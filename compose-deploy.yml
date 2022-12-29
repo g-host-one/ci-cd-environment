@@ -32,7 +32,7 @@
       args:
         chdir: "{{ project_dir }}"
       register: compose_state
-      changed_when: '"resolve" in compose_state.stderr or "The following additional packages will be installed" in compose_state.stderr'
+      changed_when: '"resolve" in compose_state.stdout or "The following additional packages will be installed" in compose_state.stdout'
 
     - name: Start docker compose
       command: docker compose up -d
