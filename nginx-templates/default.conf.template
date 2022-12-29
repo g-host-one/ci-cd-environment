@@ -1,0 +1,66 @@
+server {
+    listen       443 http2 ssl default_server;
+
+    server_name  ${DOMAINS};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAINS}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAINS}/privkey.pem;
+    ssl_dhparam         /etc/letsencrypt/dhparams/${DOMAINS}/dhparam.pem;
+    
+
+    ssl_session_cache         shared:SSL:10m;
+    ssl_session_timeout       10m;
+    ssl_protocols             TLSv1.2 TLSv1.3;
+    ssl_ciphers               EECDH+AESGCM:EDH+AESGCM;
+    ssl_prefer_server_ciphers on;
+    ssl_ecdh_curve            secp384r1;
+    ssl_session_tickets       off;
+    ssl_stapling              on;
+    ssl_stapling_verify       on;
+    resolver                  8.8.8.8 8.8.4.4 valid=300s;
+    resolver_timeout          5s;
+    add_header               Strict-Transport-Security "max-age=63072000; includeSubDomains; preload";
+    add_header                X-Frame-Options DENY;
+    add_header                X-Content-Type-Options nosniff;
+    add_header                X-XSS-Protection "1; mode=block";
+
+    error_page                404              /404.html;
+    error_page                500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+
+
+    location /jenkins-github-webhook {
+        proxy_pass http://jenkins:8080/github-webhook/;
+
+        limit_except POST {
+            deny all;
+        }
+
+        proxy_redirect          off;
+        proxy_set_header        Host            $host;
+        proxy_set_header        X-Real-IP       $remote_addr;
+        proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
+        client_max_body_size    10m;
+        client_body_buffer_size 128k;
+        proxy_connect_timeout   90;
+        proxy_send_timeout      90;
+        proxy_read_timeout      90;
+        proxy_buffers           32 4k;
+
+        proxy_intercept_errors  on;
+        error_page              400 /50x.html;
+    }
+
+    location /repo/ {
+        alias                 /mnt/repo/;
+
+        sendfile             on;
+        sendfile_max_chunk   1m;
+        error_page           403 =404 /404.html;
+
+        auth_basic           "";
+        auth_basic_user_file /etc/nginx/htpasswd;
+    }
+}

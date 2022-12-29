@@ -1,0 +1,58 @@
+services:
+  jenkins:
+    image: jenkins/jenkins:2.346.3-lts-jdk11
+    container_name: jenkins
+    restart: always
+    ports:
+      - "${JENKINS_PORT_HTTP}:8080"
+      - "${JENKINS_PORT_AGENT}:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home/:rw
+    networks:
+      - ci-cd-net
+
+  jenkins-node:
+    build:
+      context: ./jenkins-node
+      dockerfile: ./jenkins-node.Dockerfile
+    container_name: jenkins-node
+    hostname: jenkins-node
+    restart: always
+    environment:
+      - SSH_PUB_KEY
+    volumes:
+      - pkg_repo:/mnt/repo/:rw
+      - ./ubuntu_repo.conf:/etc/apt/ubuntu_repo.conf:ro
+    networks:
+      - ci-cd-net
+
+  nginx-certbot:
+    image: jonasal/nginx-certbot:3.2.2-nginx1.23.2-alpine
+    container_name: nginx
+    restart: always
+    environment:
+      - CERTBOT_EMAIL
+      - DOMAINS
+      - USE_LOCAL_CA
+    ports:
+      - "${NGINX_PORT_HTTP}:80"
+      - "${NGINX_PORT_HTTPS}:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx-templates/:/etc/nginx/templates/:ro
+      - ./htpasswd:/etc/nginx/htpasswd:ro
+      - ./certbot/:/etc/letsencrypt/:rw
+      - pkg_repo:/mnt/repo/:ro
+    networks:
+      - ci-cd-net
+
+volumes:
+  jenkins_home:
+  pkg_repo:
+
+networks:
+  ci-cd-net:
+    ipam:
+        driver: default
+        config:
+          - subnet: "${CI_CD_NET}"
